@@ -77,6 +77,7 @@ convertCSS();
 
 for (elem of document.getElementsByTagName("*")) convertElem(elem);
 
+
 let observer = new MutationObserver(function (mutations) {
 	mutations.forEach(function (mutation) {
 		for (elem of mutation.addedNodes) convertElem(elem);
