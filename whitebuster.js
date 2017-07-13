@@ -48,12 +48,15 @@ function convertCSS() {
 
 		for (const cssRule of classes) {
 			if (cssRule.type === 1 && !!cssRule.style) {
+				//console.log(cssRule.style.cssText);
 				const cssText = cssRule.style.cssText.replace('background: rgba(255, 255, 255', 'background: rgba(' + prefix)
 					.replace('background-color: rgba(255, 255, 255', 'background-color: rgba(' + prefix)
 					.replace('background: rgb(255, 255, 255', 'background: rgb(' + prefix)
 					.replace('background-color: rgb(255, 255, 255', 'background: rgb(' + prefix)
 					.replace('background: white', 'background: #' + hex)
-					.replace('background-color: white', 'background: #' + hex);
+					.replace('background-color: white', 'background: #' + hex)
+					.replace('background: #FFFFFF', 'background: #' + hex)
+					.replace('background-color: #FFFFFF', 'background: #' + hex);
 				if (cssText !== cssRule.style.cssText) cssRule.style.cssText = cssText;
 			}
 		}
