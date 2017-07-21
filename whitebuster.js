@@ -1,4 +1,14 @@
+(function () { 
+
 const hex = "f5f5f5";
+
+const hexRGBArray = hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16));
+const hexRGBAprefix = hexRGBArray[0] + ', ' + hexRGBArray[1] + ', ' + hexRGBArray[2];
+
+// replace all case insensitive
+function ra(str, strReplace, strWith) {
+	return str.replace(new RegExp(strReplace.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'ig'), strWith);
+}
 
 function addCSSclass(rules) {
 	const style = document.createElement("style");
@@ -28,6 +38,21 @@ function toggleClass(elem, theClass, newState, first = false) {
 	}
 }
 
+function convertColorStr(str) {
+	// replace all case insensitive
+	s=ra(str, 'background: rgba(255, 255, 255', 'background: rgba(' + hexRGBAprefix);
+	s=ra(s, 'background-color: rgba(255, 255, 255', 'background-color: rgba(' + hexRGBAprefix);
+	s=ra(s, 'background: rgb(255, 255, 255)', 'background: #' + hex);
+	s=ra(s, 'background-color: rgb(255, 255, 255)', 'background: #' + hex);
+	s=ra(s, 'background: white', 'background: #' + hex);
+	s=ra(s, 'background-color: white', 'background: #' + hex);
+	s=ra(s, 'background: #FFFFFF', 'background: #' + hex);
+	s=ra(s, 'background-color: #FFFFFF', 'background: #' + hex);
+	s=ra(s, 'background: #FFF', 'background: #' + hex);
+	s=ra(s, 'background-color: #FFF', 'background: #' + hex);
+	//if (s!==str) console.log(str + ' => ' + s +'\n');
+	return s;
+}
 
 function convertBody() {
 	addCSSclass([{
@@ -38,10 +63,6 @@ function convertBody() {
 }
 
 function convertCSS() {
-	const hexToRGBArray = hex => hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16));
-	const RGBArray = hexToRGBArray(hex)
-	const prefix = RGBArray[0] + ', ' + RGBArray[1] + ', ' + RGBArray[2];
-
 	for (const styleSheet of window.document.styleSheets) {
 		const classes = styleSheet.rules || styleSheet.cssRules;
 		if (!classes) continue;
@@ -49,15 +70,8 @@ function convertCSS() {
 		for (const cssRule of classes) {
 			if (cssRule.type === 1 && !!cssRule.style) {
 				//console.log(cssRule.style.cssText);
-				const cssText = cssRule.style.cssText.replace('background: rgba(255, 255, 255', 'background: rgba(' + prefix)
-					.replace('background-color: rgba(255, 255, 255', 'background-color: rgba(' + prefix)
-					.replace('background: rgb(255, 255, 255', 'background: rgb(' + prefix)
-					.replace('background-color: rgb(255, 255, 255', 'background: rgb(' + prefix)
-					.replace('background: white', 'background: #' + hex)
-					.replace('background-color: white', 'background: #' + hex)
-					.replace('background: #FFFFFF', 'background: #' + hex)
-					.replace('background-color: #FFFFFF', 'background: #' + hex);
-				if (cssText !== cssRule.style.cssText) cssRule.style.cssText = cssText;
+				let s=convertColorStr(cssRule.style.cssText);
+				if (s !== cssRule.style.cssText) cssRule.style.cssText = s;
 			}
 		}
 	}
@@ -66,21 +80,28 @@ function convertCSS() {
 function convertElem(elem) {
 	try {
 		const bg = window.getComputedStyle(elem, null).getPropertyValue('background-color');
-		if (bg === 'rgb(255, 255, 255)') elem.style.backgroundColor = '#' + hex;
+		if (convertColorStr(bg) !== bg) elem.style.backgroundColor = '#' + hex;
 	} catch (e) {
 		// swallow error
 	}
 }
 
+function convertAllElems() {
+	for (elem of document.getElementsByTagName("*")) convertElem(elem);
+}
+
+function convertMutated() {
+	let observer = new MutationObserver(mutations => {
+		mutations.forEach(mutation => {
+			for (elem of mutation.addedNodes) convertElem(elem);
+		});
+	});
+	observer.observe(document, { attributes: true, childList: true, characterData: true, subtree:true });
+}
+
 convertBody();
 convertCSS();
+convertAllElems();
+convertMutated();
 
-for (elem of document.getElementsByTagName("*")) convertElem(elem);
-
-
-let observer = new MutationObserver(function (mutations) {
-	mutations.forEach(function (mutation) {
-		for (elem of mutation.addedNodes) convertElem(elem);
-	})
-});
-observer.observe(document, { attributes: true, childList: true, characterData: true, subtree:true });
+})();
