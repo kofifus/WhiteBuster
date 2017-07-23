@@ -34,7 +34,6 @@ function toggleClass(elem, theClass, newState, first = false) {
 }
 
 function convertColorStr(str) {
-	// replace all case insensitive
 	s=str.replace('rgba(255, 255, 255', 'rgba(' + hexRGBAprefix);
 	s=s.replace('rgb(255, 255, 255)', '#' + hex);
 	s=s.replace('white', '#' + hex);
