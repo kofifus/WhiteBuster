@@ -40,16 +40,11 @@ function toggleClass(elem, theClass, newState, first = false) {
 
 function convertColorStr(str) {
 	// replace all case insensitive
-	s=ra(str, 'background: rgba(255, 255, 255', 'background: rgba(' + hexRGBAprefix);
-	s=ra(s, 'background-color: rgba(255, 255, 255', 'background-color: rgba(' + hexRGBAprefix);
-	s=ra(s, 'background: rgb(255, 255, 255)', 'background: #' + hex);
-	s=ra(s, 'background-color: rgb(255, 255, 255)', 'background: #' + hex);
-	s=ra(s, 'background: white', 'background: #' + hex);
-	s=ra(s, 'background-color: white', 'background: #' + hex);
-	s=ra(s, 'background: #FFFFFF', 'background: #' + hex);
-	s=ra(s, 'background-color: #FFFFFF', 'background: #' + hex);
-	s=ra(s, 'background: #FFF', 'background: #' + hex);
-	s=ra(s, 'background-color: #FFF', 'background: #' + hex);
+	s=ra(str, 'rgba(255, 255, 255', 'rgba(' + hexRGBAprefix);
+	s=ra(s, 'rgb(255, 255, 255)', '#' + hex);
+	s=ra(s, 'white', '#' + hex);
+	s=ra(s, '#FFFFFF', '#' + hex);
+	s=ra(s, '#FFF', '#' + hex);
 	//if (s!==str) console.log(str + ' => ' + s +'\n');
 	return s;
 }
@@ -68,18 +63,18 @@ function convertCSS() {
 		if (!classes) continue;
 
 		for (const cssRule of classes) {
-			if (cssRule.type === 1 && !!cssRule.style) {
-				//console.log(cssRule.style.cssText);
-				let s=convertColorStr(cssRule.style.cssText);
-				if (s !== cssRule.style.cssText) cssRule.style.cssText = s;
-			}
+			if (cssRule.type !== 1 || !cssRule.style) continue;
+			const r=cssRule.style.cssText;
+			if (!r.startsWith('background: ') && !r.startsWith('background-color: ')) continue;
+			const s=convertColorStr(r);
+			if (s !== r) cssRule.style.cssText = s;
 		}
 	}
 }
 
 function convertElem(elem) {
 	try {
-		const bg = window.getComputedStyle(elem, null).getPropertyValue('background-color');
+		const bg = 'background-color: ' + window.getComputedStyle(elem, null).getPropertyValue('background-color');
 		if (convertColorStr(bg) !== bg) elem.style.backgroundColor = '#' + hex;
 	} catch (e) {
 		// swallow error
@@ -91,7 +86,7 @@ function convertAllElems() {
 }
 
 function convertMutated() {
-	let observer = new MutationObserver(mutations => {
+	const observer = new MutationObserver(mutations => {
 		mutations.forEach(mutation => {
 			for (elem of mutation.addedNodes) convertElem(elem);
 		});
