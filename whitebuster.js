@@ -5,11 +5,6 @@ const hex = "f5f5f5";
 const hexRGBArray = hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16));
 const hexRGBAprefix = hexRGBArray[0] + ', ' + hexRGBArray[1] + ', ' + hexRGBArray[2];
 
-// replace all case insensitive
-function ra(str, strReplace, strWith) {
-	return str.replace(new RegExp(strReplace.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'ig'), strWith);
-}
-
 function addCSSclass(rules) {
 	const style = document.createElement("style");
 
@@ -40,11 +35,13 @@ function toggleClass(elem, theClass, newState, first = false) {
 
 function convertColorStr(str) {
 	// replace all case insensitive
-	s=ra(str, 'rgba(255, 255, 255', 'rgba(' + hexRGBAprefix);
-	s=ra(s, 'rgb(255, 255, 255)', '#' + hex);
-	s=ra(s, 'white', '#' + hex);
-	s=ra(s, '#FFFFFF', '#' + hex);
-	s=ra(s, '#FFF', '#' + hex);
+	s=str.replace('rgba(255, 255, 255', 'rgba(' + hexRGBAprefix);
+	s=s.replace('rgb(255, 255, 255)', '#' + hex);
+	s=s.replace('white', '#' + hex);
+	s=s.replace('#FFFFFF', '#' + hex);
+	s=s.replace('#FFF', '#' + hex);
+	s=s.replace('#ffffff', '#' + hex);
+	s=s.replace('#fff', '#' + hex);
 	//if (s!==str) console.log(str + ' => ' + s +'\n');
 	return s;
 }
