@@ -97,18 +97,24 @@
 		}
 	}
 
+	function isTransparent(bgStr) {
+		return (bgStr === undefined || bgStr === 'transparent' || bgStr.startsWith('rgba(0, 0, 0, 0)'));
+	}
 
 	function convertElem(elem) {
 		if (!elem.style) return;
-		const body=(elem===document.body);
-		let bg = elem.style.backgroundColor;
-		if (!body && (bg === undefined || bg === RGBstr || bg.startsWith(RGBAstr) || bg === 'transparent' || bg.startsWith('rgba(0, 0, 0, 0)'))) {
+		const body=(elem===document.body), bg = elem.style.backgroundColor;		
+
+		if (elem===document.body) {
+			let cbg=getBGcolor(elem, null);
+			if (isTransparent(cbg) || convertBGstr(cbg, false) !== cbg) setBGcolor(elem);
+		} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
 			// nothing to do
-		} else if (body || !bg) {
-			bg = getBGcolor(elem, null);
-			if (bg && convertBGstr(bg, false) !== bg) setBGcolor(elem);
-		} else if (convertBGstr(bg, false) !== bg) {
-			setBGcolor(elem);
+		} else if (!bg) {
+			let cbg=getBGcolor(elem, null);
+			if (cbg && convertBGstr(cbg, false) !== cbg) setBGcolor(elem);
+		} else {
+			if (convertBGstr(bg, false) !== bg) setBGcolor(elem);
 		}
 	}
 
