@@ -1,100 +1,57 @@
 (function () { 
+	'use strict';
 
-
-	const hex = "f5f5f5";
+	const hex = 'f5f5f5';
 
 	const hexRGBArray = hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16));
 	const RGBAstr = 'rgba(' + hexRGBArray[0] + ', ' + hexRGBArray[1] + ', ' + hexRGBArray[2];
 	const RGBstr = 'rgb(' + hexRGBArray[0] + ', ' + hexRGBArray[1] + ', ' + hexRGBArray[2] + ')';
 
-	// Returns a function, that, when invoked, will only be triggered at most once
-	// during a given window of time. Normally, the throttled function will run
-	// as much as it can, without ever going more than once per `wait` duration;
-	// but if you'd like to disable the execution on the leading edge, pass
-	// `{leading: false}`. To disable execution on the trailing edge, ditto.
-	function throttle(func, wait, options) {
-		var timeout, context, args, result;
-		var previous = 0;
-		if (!options) options = {};
-
-		var later = function () {
-			previous = options.leading === false ? 0 : new Date().getTime();
-			timeout = null;
-			result = func.apply(context, args);
-			if (!timeout) context = args = null;
-		};
-
-		var throttled = function () {
-			var now = new Date().getTime();
-			if (!previous && options.leading === false) previous = now;
-			var remaining = wait - (now - previous);
-			context = this;
-			args = arguments;
-			if (remaining <= 0 || remaining > wait) {
-				if (timeout) {
-					clearTimeout(timeout);
-					timeout = null;
-				}
-				previous = now;
-				result = func.apply(context, args);
-				if (!timeout) context = args = null;
-			} else if (!timeout && options.trailing !== false) {
-				timeout = setTimeout(later, remaining);
-			}
-			return result;
-		};
-
-		throttled.cancel = function () {
-			clearTimeout(timeout);
-			previous = 0;
-			timeout = context = args = null;
-		};
-
-		return throttled;
-	}
-
-	function convertBGstr(str, prefix) {
-		prefix=prefix ? '(background(?:\\-color)?:[ ]?)' : '()';
-		let regRgba = new RegExp(prefix + 'rgba\\((?:255, 255, 255|254, 254, 254)', 'ig');
-		let regRgb = new RegExp(prefix +'(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
+	function convertBGstr(str) {
+		let regRgba = new RegExp('rgba\\((?:255, 255, 255|254, 254, 254)', 'ig');
+		let regRgb = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
 	
-		s=str.replace(regRgba, '$1'+RGBAstr);
-		s=s.replace(regRgb, '$1'+RGBstr);
+		let s=str.replace(regRgba, RGBAstr);
+		s=s.replace(regRgb, RGBstr);
 
 		//if (s!==str) console.log(str + ' => ' + s +'\n');
 		return s;
 	}
 
-	function convertCSS() {
+	function iterateCSS(f) {
 		for (const styleSheet of window.document.styleSheets) {
 			const classes = styleSheet.rules || styleSheet.cssRules;
 			if (!classes) continue;
 
 			for (const cssRule of classes) {
 				if (cssRule.type !== 1 || !cssRule.style) continue;
-				const selector = cssRule.selectorText, declaration=cssRule.style.cssText;
-				if (!selector || !declaration) continue;
-
-				let s=convertBGstr(declaration, true);
-				if (s !== declaration) cssRule.style.cssText = s;
+				const selector = cssRule.selectorText, style=cssRule.style;
+				if (!selector || !style.cssText) continue;
+				for (let i=0; i<style.length; i++) {
+					const propertyName=style.item(i);
+					if (f(selector, propertyName, style.getPropertyValue(propertyName), style.getPropertyPriority(propertyName), cssRule)===false) return;
+				}
 			}
 		}
 	}
 
+	function convertCSS(f) {
+		iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
+			const lcPropertyName=propertyName.toLowerCase();
+			if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
+			
+			let s=convertBGstr(propertyValue);
+			if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
+		});
+	}
+
+
 	function getBGcolor(elem) {
-		try {
-			return window.getComputedStyle(elem, null).getPropertyValue('background-color');
-		} catch (e) {
-			return '';
-		}
+		try { return window.getComputedStyle(elem, null).getPropertyValue('background-color'); } catch (e) { return ''; }
 	}
 
 	function setBGcolor(elem, color=RGBstr) {
-		try {
-			elem.style.backgroundColor = color;
-		} catch (e) {
-			/* swallow error */
-		}
+		try { elem.style.backgroundColor = color; } catch (e) { /* swallow error */ }
 	}
 
 	function isTransparent(bgStr) {
@@ -107,45 +64,64 @@
 
 		if (elem===document.body) {
 			let cbg=getBGcolor(elem, null);
-			if (isTransparent(cbg) || convertBGstr(cbg, false) !== cbg) setBGcolor(elem);
+			if (!bg || isTransparent(cbg) || convertBGstr(cbg) !== cbg) setBGcolor(elem);
 		} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
 			// nothing to do
 		} else if (!bg) {
 			let cbg=getBGcolor(elem, null);
-			if (cbg && convertBGstr(cbg, false) !== cbg) setBGcolor(elem);
+			if (cbg && convertBGstr(cbg) !== cbg) setBGcolor(elem);
 		} else {
-			if (convertBGstr(bg, false) !== bg) setBGcolor(elem);
+			if (convertBGstr(bg) !== bg) setBGcolor(elem);
 		}
 	}
 
 	function convertAllElems(root=document) {
 		if (!root.getElementsByTagName) return;
+		if (root.tagName==='IFRAME') try { root=elem.contentDocument; } catch(e) {};
+		if (root!=document) convertElem(root);
 
-		for (elem of root.getElementsByTagName('*')) {
+		for (const elem of root.getElementsByTagName('*')) {
 			if (elem.tagName==='IFRAME') {
 				try { convertAllElems(elem.contentDocument); } catch(e) {};
 			} else {
 				convertElem(elem);
 			}
 		}
-	}		
+	}
 
-	function handleMutation(mutations) {
-		mutations.forEach(mutation => {
-			for (elem of mutation.addedNodes) {
-				convertElem(elem);
-				convertAllElems(elem);
+	function processMutations(addedNodes) {
+		//console.log(addedNodes);
+		addedNodes.forEach(convertAllElems);
+		addedNodes.length=0;
+	}	
+
+	function handleMutations(mutations, observer) {
+		const self=handleMutations;
+		if (!self.addedNodes) self.addedNodes=[];
+		
+		if (self.cssLength && self.cssLength !== document.styleSheets.length) convertCSS();
+		self.cssLength=document.styleSheets.length;
+
+		observer.disconnect();
+
+		for (const mutation of mutations) {
+			if (mutation.type === 'attributes') convertElem(mutation.target);
+			for (const elem of mutation.addedNodes) {
+				if (elem.nodeType === Node.ELEMENT_NODE) {
+					convertElem(elem);
+					self.addedNodes.push(elem);
+				}
 			}
-		});
+		}
+
+		observer.connect();
 	}
-	const throttledHandleMution = throttle(handleMutation, 200);
-	
-	function convertMutated() {
-		const observer = new MutationObserver(mutations => throttledHandleMution(mutations));
-		observer.observe(document, { childList: true, subtree:true });
-	}
+
 
 	convertCSS();
 	convertAllElems();
-	convertMutated();
+
+	const observer = new MutationObserver(handleMutations);
+	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
+	observer.connect();
 })();
