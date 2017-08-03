@@ -64,7 +64,7 @@
 
 		if (elem===document.body) {
 			let cbg=getBGcolor(elem, null);
-			if (!bg || isTransparent(cbg) || convertBGstr(cbg) !== cbg) setBGcolor(elem);
+			if ((!bg && !cbg) || isTransparent(cbg) || convertBGstr(cbg) !== cbg) setBGcolor(elem);
 		} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
 			// nothing to do
 		} else if (!bg) {
