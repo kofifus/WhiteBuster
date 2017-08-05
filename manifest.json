@@ -1,0 +1,18 @@
+{
+	"manifest_version": 2,
+	"name": "WhiteBuster",
+	"version": "1.0",
+
+	"description": "Busting whites since 2017",
+	"browser_action": {
+		"default_icon": "whitebuster.png"
+	},
+
+	"content_scripts": [
+		{
+			"matches": ["*://*/*"],
+			"run_at": "document_end",
+			"js": ["whitebuster.js"]
+		}
+	]
+}
