@@ -1,122 +1,136 @@
 (function () { 
-	'use strict';
+'use strict';
 
-	const hex = 'f5f5f5';
+let RGBAstr, RGBstr;
 
-	const hexRGBArray = hex.match(/[A-Za-z0-9]{2}/g).map(v => parseInt(v, 16));
-	const RGBAstr = 'rgba(' + hexRGBArray[0] + ', ' + hexRGBArray[1] + ', ' + hexRGBArray[2];
-	const RGBstr = 'rgb(' + hexRGBArray[0] + ', ' + hexRGBArray[1] + ', ' + hexRGBArray[2] + ')';
+function convertBGstr(str) {
+	let regRgba = new RegExp('rgba\\((?:255, 255, 255|254, 254, 254)', 'ig');
+	let regRgb = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
 
-	function convertBGstr(str) {
-		let regRgba = new RegExp('rgba\\((?:255, 255, 255|254, 254, 254)', 'ig');
-		let regRgb = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
-	
-		let s=str.replace(regRgba, RGBAstr);
-		s=s.replace(regRgb, RGBstr);
+	let s=str.replace(regRgba, RGBAstr);
+	s=s.replace(regRgb, RGBstr);
 
-		//if (s!==str) console.log(str + ' => ' + s +'\n');
-		return s;
-	}
+	//if (s!==str) console.log(str + ' => ' + s +'\n');
+	return s;
+}
 
-	function iterateCSS(f) {
-		for (const styleSheet of window.document.styleSheets) {
-			const classes = styleSheet.rules || styleSheet.cssRules;
-			if (!classes) continue;
+function iterateCSS(f) {
+	for (const styleSheet of window.document.styleSheets) {
+		const classes = styleSheet.rules || styleSheet.cssRules;
+		if (!classes) continue;
 
-			for (const cssRule of classes) {
-				if (cssRule.type !== 1 || !cssRule.style) continue;
-				const selector = cssRule.selectorText, style=cssRule.style;
-				if (!selector || !style.cssText) continue;
-				for (let i=0; i<style.length; i++) {
-					const propertyName=style.item(i);
-					if (f(selector, propertyName, style.getPropertyValue(propertyName), style.getPropertyPriority(propertyName), cssRule)===false) return;
-				}
+		for (const cssRule of classes) {
+			if (cssRule.type !== 1 || !cssRule.style) continue;
+			const selector = cssRule.selectorText, style=cssRule.style;
+			if (!selector || !style.cssText) continue;
+			for (let i=0; i<style.length; i++) {
+				const propertyName=style.item(i);
+				if (f(selector, propertyName, style.getPropertyValue(propertyName), style.getPropertyPriority(propertyName), cssRule)===false) return;
 			}
 		}
 	}
+}
 
-	function convertCSS(f) {
-		iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
-			const lcPropertyName=propertyName.toLowerCase();
-			if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
-			
-			let s=convertBGstr(propertyValue);
-			if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
-		});
-	}
-
-
-	function getBGcolor(elem) {
-		try { return window.getComputedStyle(elem, null).getPropertyValue('background-color'); } catch (e) { return ''; }
-	}
-
-	function setBGcolor(elem, color=RGBstr) {
-		try { elem.style.backgroundColor = color; } catch (e) { /* swallow error */ }
-	}
-
-	function isTransparent(bgStr) {
-		return (bgStr === undefined || bgStr === 'transparent' || bgStr.startsWith('rgba(0, 0, 0, 0)'));
-	}
-
-	function convertElem(elem) {
-		if (!elem.style) return;
-		const body=(elem===document.body), bg = elem.style.backgroundColor;		
-
-		if (elem===document.body) {
-			let cbg=getBGcolor(elem, null);
-			if ((!bg && !cbg) || isTransparent(cbg) || convertBGstr(cbg) !== cbg) setBGcolor(elem);
-		} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
-			// nothing to do
-		} else if (!bg) {
-			let cbg=getBGcolor(elem, null);
-			if (cbg && convertBGstr(cbg) !== cbg) setBGcolor(elem);
-		} else {
-			if (convertBGstr(bg) !== bg) setBGcolor(elem);
-		}
-	}
-
-	function convertAllElems(root=document) {
-		if (!root.getElementsByTagName) return;
-		if (root.tagName==='IFRAME') try { root=elem.contentDocument; } catch(e) {};
-		if (root!=document) convertElem(root);
-
-		for (const elem of root.getElementsByTagName('*')) {
-			if (elem.tagName==='IFRAME') {
-				try { convertAllElems(elem.contentDocument); } catch(e) {};
-			} else {
-				convertElem(elem);
-			}
-		}
-	}
-
-	function processMutations(addedNodes) {
-		//console.log(addedNodes);
-		addedNodes.forEach(convertAllElems);
-		addedNodes.length=0;
-	}	
-
-	function handleMutations(mutations, observer) {
-		const self=handleMutations;
-		if (!self.addedNodes) self.addedNodes=[];
+function convertCSS() {
+	iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
+		const lcPropertyName=propertyName.toLowerCase();
+		if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
 		
-		if (self.cssLength && self.cssLength !== document.styleSheets.length) convertCSS();
-		self.cssLength=document.styleSheets.length;
+		let s=convertBGstr(propertyValue);
+		if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
+	});
+}
 
-		observer.disconnect();
 
-		for (const mutation of mutations) {
-			if (mutation.type === 'attributes') convertElem(mutation.target);
-			for (const elem of mutation.addedNodes) {
-				if (elem.nodeType === Node.ELEMENT_NODE) {
-					convertElem(elem);
-					self.addedNodes.push(elem);
-				}
+function getBGcolor(elem) {
+	try { return window.getComputedStyle(elem, null).getPropertyValue('background-color'); } catch (e) { return ''; }
+}
+
+function setBGcolor(elem, color=RGBstr) {
+	try { elem.style.backgroundColor = color; } catch (e) { /* swallow error */ }
+}
+
+function isTransparent(bgStr) {
+	return (bgStr === undefined || bgStr === 'transparent' || bgStr.startsWith('rgba(0, 0, 0, 0)'));
+}
+
+function convertElem(elem) {
+	if (!elem.style) return;
+	const body=(elem===document.body), bg = elem.style.backgroundColor;		
+
+	if (elem===document.body) {
+		let cbg=getBGcolor(elem, null);
+		if ((!bg && !cbg) || isTransparent(cbg) || convertBGstr(cbg) !== cbg) setBGcolor(elem);
+	} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
+		// nothing to do
+	} else if (!bg) {
+		let cbg=getBGcolor(elem, null);
+		if (cbg && convertBGstr(cbg) !== cbg) setBGcolor(elem);
+	} else {
+		if (convertBGstr(bg) !== bg) setBGcolor(elem);
+	}
+}
+
+function convertAllElems(root=document) {
+	if (!root.getElementsByTagName) return;
+	if (root.tagName==='IFRAME') try { root=elem.contentDocument; } catch(e) {};
+	if (root!=document) convertElem(root);
+
+	for (const elem of root.getElementsByTagName('*')) {
+		if (elem.tagName==='IFRAME') {
+			try { convertAllElems(elem.contentDocument); } catch(e) {};
+		} else {
+			convertElem(elem);
+		}
+	}
+}
+
+function processMutations(addedNodes) {
+	//console.log(addedNodes);
+	addedNodes.forEach(convertAllElems);
+	addedNodes.length=0;
+}	
+
+function handleMutations(mutations, observer) {
+	const self=handleMutations;
+	if (!self.addedNodes) self.addedNodes=[];
+	
+	if (self.cssLength && self.cssLength !== document.styleSheets.length) convertCSS();
+	self.cssLength=document.styleSheets.length;
+
+	observer.disconnect();
+
+	for (const mutation of mutations) {
+		if (mutation.type === 'attributes') convertElem(mutation.target);
+		for (const elem of mutation.addedNodes) {
+			if (elem.nodeType === Node.ELEMENT_NODE) {
+				convertElem(elem);
+				self.addedNodes.push(elem);
 			}
 		}
-
-		observer.connect();
 	}
 
+	observer.connect();
+}
+
+function parseColor(s) {
+	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
+	let color;
+	try { color=JSON.parse(s); } catch(err) { color=[245, 245, 245]; }
+	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
+	return color;
+}
+
+
+chrome.storage.sync.get(null, storage => {
+	let color=parseColor(storage.color);
+	if (color[0]===255 && color[1]===255 &&color[2]===255) return;
+	if (color[0]===254 && color[1]===254 &&color[2]===254) return;
+
+	let s=color[0]+','+color[1]+','+color[2];
+	console.log(s);
+	RGBAstr = 'rgba(' + s;
+	RGBstr = 'rgb(' + s + ')';
 
 	convertCSS();
 	convertAllElems();
@@ -124,4 +138,6 @@
 	const observer = new MutationObserver(handleMutations);
 	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
 	observer.connect();
+});
+
 })();
