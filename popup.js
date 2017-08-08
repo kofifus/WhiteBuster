@@ -36,7 +36,7 @@ function parseColor(s) {
 function load() {
 	chrome.storage.sync.get(null, storage => {
 		let color=parseColor(storage.color), customColor=parseColor(storage.customColor);
-		customLi.dataset.color=storage.customColor;
+		customLi.dataset.color=JSON.stringify(storage.customColor);
 		inputs[0].value=String(customColor[0]);
 		inputs[1].value=String(customColor[1]);
 		inputs[2].value=String(customColor[2]);
@@ -46,8 +46,7 @@ function load() {
 			selected=lis[lis.length-1];
 		} else {
 			lis.forEach(li => {
-				console.log(li.dataset.color);
-				const liColor=JSON.parse(li.dataset.color);
+				const liColor=parseColor(li.dataset.color);
 				if (!selected && liColor[0]===color[0] && liColor[1]===color[1] && liColor[2]===color[2]) selected=li;
 				li.style.backgroundColor='rgb('+liColor[0]+','+liColor[1]+','+liColor[2]+')';
 			});

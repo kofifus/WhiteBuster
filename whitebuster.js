@@ -96,7 +96,6 @@ function convertAllElems(root=document) {
 }
 
 function processMutations(addedNodes) {
-	//console.log(addedNodes);
 	addedNodes.forEach(convertAllElems);
 	addedNodes.length=0;
 }	
@@ -152,7 +151,6 @@ chrome.storage.sync.get(null, storage => {
 
 
 chrome.runtime.onMessage.addListener(msg => {
-	//console.log('new color: '+msg.color);
 	if (msg.color) setColor(parseColor(msg.color));
 });
 
