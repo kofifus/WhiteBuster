@@ -69,8 +69,8 @@ function save() {
 
 	chrome.tabs.query({}, tabs => {
 		tabs.forEach(tab => {
-	  	chrome.tabs.sendMessage(tab.id, o);
-	  });
+			chrome.tabs.sendMessage(tab.id, o);
+		});
 	});
 }
 
