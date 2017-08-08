@@ -1,4 +1,5 @@
-'use strict'
+(function () { 
+'use strict';
 
 const lis=Array.from(document.getElementsByTagName("LI")),
 	inputs=Array.from(document.getElementsByTagName("INPUT")),
@@ -63,7 +64,6 @@ function save() {
 	if (!selected) selected=lis[0];
 
 	const o={'color': selected.dataset.color}
-
 	chrome.storage.sync.set(o);
 
 	chrome.tabs.query({}, tabs => {
@@ -79,27 +79,31 @@ function liClicked(li) {
 	save();
 }
 
+function hookEvents() {
+	lis.forEach(li => li.addEventListener('click', e => liClicked(e.target)));
+	lis.forEach(li => li.firstChild.addEventListener('click', e => liClicked(e.target)));
+
+	inputs.forEach(inp => inp.addEventListener('click', e => {
+		activateLi(customLi);
+		e.stopPropagation();
+		e.target.focus();
+	}));
+
+	inputs.forEach(inp => inp.addEventListener('input', e => {
+		const inp=e.target, old=inp.dataset.old;
+		if (Number(inp.value>255)) inp.value=old ? old : '245';
+		inp.dataset.old=inp.value; 
+
+		const v1=inputs[0].value, v2=inputs[1].value, v3=inputs[2].value;
+		customLi.dataset.color=JSON.stringify([Number(v1), Number(v2), Number(v3)]);
+		chrome.storage.sync.set({'customColor': customLi.dataset.color});
+		customLi.style.backgroundColor='rgb('+v1+','+v2+','+v3+')';
+
+		save();
+	}));
+}
+
 load();
+hookEvents();
 
-lis.forEach(li => li.addEventListener('click', e => liClicked(e.target)));
-lis.forEach(li => li.firstChild.addEventListener('click', e => liClicked(e.target)));
-
-inputs.forEach(inp => inp.addEventListener('click', e => {
-	activateLi(customLi);
-	e.stopPropagation();
-	e.target.focus();
-}));
-
-inputs.forEach(inp => inp.addEventListener('input', e => {
-	const inp=e.target, old=inp.dataset.old;
-	if (Number(inp.value>255)) inp.value=old ? old : '245';
-	inp.dataset.old=inp.value; 
-
-	const v1=inputs[0].value, v2=inputs[1].value, v3=inputs[2].value;
-	customLi.dataset.color=JSON.stringify([Number(v1), Number(v2), Number(v3)]);
-	chrome.storage.sync.set({'customColor': customLi.dataset.color});
-	customLi.style.backgroundColor='rgb('+v1+','+v2+','+v3+')';
-
-	save();
-}));
-
+})();

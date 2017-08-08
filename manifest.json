@@ -1,7 +1,7 @@
 {
 	"manifest_version": 2,
 	"name": "WhiteBuster",
-	"version": "1.2.1",
+	"version": "1.2.2",
 
 	"description": "Busting whites since 2017",
 	"browser_action": {
@@ -17,7 +17,14 @@
 		}
 	],
 
+	"background": {
+    "scripts": ["background.js"]
+  },
+
 	"permissions": [
-		"storage"
+		"storage",
+		"tabs", 
+		"http://*/*", 
+		"https://*/*"
 	]	
 }

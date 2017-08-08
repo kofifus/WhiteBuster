@@ -122,36 +122,36 @@ function handleMutations(mutations, observer) {
 	observer.connect();
 }
 
-function parseColor(s) {
-	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
-	let color;
-	try { color=JSON.parse(s); } catch(err) { color=[245, 245, 245]; }
-	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
-	return color;
-}
-
 function setColor(color) {
+	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
+	
+	if (!color) return;
+	try { color=JSON.parse(color); } catch(err) { return; }
+	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
+
 	document.documentElement.style.setProperty('--whitebusterR', String(color[0]));
 	document.documentElement.style.setProperty('--whitebusterG', String(color[1]));
 	document.documentElement.style.setProperty('--whitebusterB', String(color[2]));
 }
 
+function whitebust(color) {
+	if (!color) return;
+	setColor(color);
 
-chrome.storage.sync.get(null, storage => {
-	let color=parseColor(storage.color);
-	setColor(parseColor(storage.color));
-	
+	if (whitebust.alredyRun) return;
+	whitebust.alredyRun=true;
+
 	convertCSS();
 	convertAllElems();
 
 	const observer = new MutationObserver(handleMutations);
 	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
 	observer.connect();
-});
+}
 
-
-chrome.runtime.onMessage.addListener(msg => {
-	if (msg.color) setColor(parseColor(msg.color));
-});
+if (window.WHITEBUSTERINJECTED) return;
+chrome.storage.sync.get(null, storage => { if (!chrome.runtime.lastError) whitebust(storage.color); });
+chrome.runtime.onMessage.addListener(msg => { if (!chrome.runtime.lastError) whitebust(msg.color); });
+window.WHITEBUSTERINJECTED=true;
 
 })();
