@@ -4,8 +4,6 @@ const lis=Array.from(document.getElementsByTagName("LI")),
 	inputs=Array.from(document.getElementsByTagName("INPUT")),
 	customLi=document.getElementById('custom');
 
-let inputsUsed=false
-
 function activateLi(theLi) {
 	function activateOneLi(li, activate) {
 		if (li.tagName!='LI') li=li.closest('li');
@@ -48,6 +46,7 @@ function load() {
 			selected=lis[lis.length-1];
 		} else {
 			lis.forEach(li => {
+				console.log(li.dataset.color);
 				const liColor=JSON.parse(li.dataset.color);
 				if (!selected && liColor[0]===color[0] && liColor[1]===color[1] && liColor[2]===color[2]) selected=li;
 				li.style.backgroundColor='rgb('+liColor[0]+','+liColor[1]+','+liColor[2]+')';
@@ -64,21 +63,21 @@ function save() {
 	lis.forEach(li => { if (li.firstChild.disabled===false) selected=li; });
 	if (!selected) selected=lis[0];
 
-	chrome.storage.sync.set({'color': selected.dataset.color});
-}
+	const o={'color': selected.dataset.color}
 
-function finish() {
-	chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-		chrome.tabs.reload(tabs[0].id);
+	chrome.storage.sync.set(o);
+
+	chrome.tabs.query({}, tabs => {
+		tabs.forEach(tab => {
+	  	chrome.tabs.sendMessage(tab.id, o);
+	  });
 	});
-	window.close();
 }
 
 function liClicked(li) {
 	if (li.tagName!='LI') li=li.closest('li');
 	activateLi(li); 
 	save();
-	if (li!==customLi || inputsUsed) finish();
 }
 
 load();
@@ -92,10 +91,6 @@ inputs.forEach(inp => inp.addEventListener('click', e => {
 	e.target.focus();
 }));
 
-inputs.forEach(inp => inp.addEventListener('keypress', e => {
-	if (e.key==='Enter') finish();
-}));
-
 inputs.forEach(inp => inp.addEventListener('input', e => {
 	const inp=e.target, old=inp.dataset.old;
 	if (Number(inp.value>255)) inp.value=old ? old : '245';
@@ -107,6 +102,5 @@ inputs.forEach(inp => inp.addEventListener('input', e => {
 	customLi.style.backgroundColor='rgb('+v1+','+v2+','+v3+')';
 
 	save();
-	inputsUsed=true;
 }));
 

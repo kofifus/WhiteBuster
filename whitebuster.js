@@ -1,17 +1,17 @@
 (function () { 
 'use strict';
 
-let RGBAstr, RGBstr;
+const RGBstr='rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
+let RGBAstr='rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
 
 function convertBGstr(str) {
-	let regRgba = new RegExp('rgba\\((?:255, 255, 255|254, 254, 254)', 'ig');
 	let regRgb = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
+	let regRgba = new RegExp('rgba\\((?:255, 255, 255|254, 254, 254),(.+)\\)', 'ig');
 
-	let s=str.replace(regRgba, RGBAstr);
-	s=s.replace(regRgb, RGBstr);
+	let res=str.replace(regRgb, RGBstr);
+	res=res.replace(regRgba, RGBAstr+' $1)');
 
-	//if (s!==str) console.log(str + ' => ' + s +'\n');
-	return s;
+	return res;
 }
 
 function iterateCSS(f) {
@@ -46,7 +46,7 @@ function getBGcolor(elem) {
 	try { return window.getComputedStyle(elem, null).getPropertyValue('background-color'); } catch (e) { return ''; }
 }
 
-function setBGcolor(elem, color=RGBstr) {
+function setBGcolor(elem, color) {
 	try { elem.style.backgroundColor = color; } catch (e) { /* swallow error */ }
 }
 
@@ -60,14 +60,24 @@ function convertElem(elem) {
 
 	if (elem===document.body) {
 		let cbg=getBGcolor(elem, null);
-		if ((!bg && !cbg) || isTransparent(cbg) || convertBGstr(cbg) !== cbg) setBGcolor(elem);
+		if ((!bg && !cbg) || isTransparent(cbg)) {
+			setBGcolor(elem, RGBstr);
+		} else {
+			let newCbg=convertBGstr(cbg);
+			if (newCbg !== cbg) setBGcolor(elem, newCbg);
+		}
+
 	} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
 		// nothing to do
+
 	} else if (!bg) {
 		let cbg=getBGcolor(elem, null);
-		if (cbg && convertBGstr(cbg) !== cbg) setBGcolor(elem);
+		let newCbg=convertBGstr(cbg);
+		if (cbg && newCbg !== cbg) setBGcolor(elem, newCbg);
+
 	} else {
-		if (convertBGstr(bg) !== bg) setBGcolor(elem);
+		let newBg=convertBGstr(bg);
+		if (newBg !== bg) setBGcolor(elem, newBg);
 	}
 }
 
@@ -121,23 +131,29 @@ function parseColor(s) {
 	return color;
 }
 
+function setColor(color) {
+	document.documentElement.style.setProperty('--whitebusterR', String(color[0]));
+	document.documentElement.style.setProperty('--whitebusterG', String(color[1]));
+	document.documentElement.style.setProperty('--whitebusterB', String(color[2]));
+}
+
 
 chrome.storage.sync.get(null, storage => {
 	let color=parseColor(storage.color);
-	if (color[0]===255 && color[1]===255 &&color[2]===255) return;
-	if (color[0]===254 && color[1]===254 &&color[2]===254) return;
-
-	let s=color[0]+','+color[1]+','+color[2];
-	console.log(s);
-	RGBAstr = 'rgba(' + s;
-	RGBstr = 'rgb(' + s + ')';
-
+	setColor(parseColor(storage.color));
+	
 	convertCSS();
 	convertAllElems();
 
 	const observer = new MutationObserver(handleMutations);
 	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
 	observer.connect();
+});
+
+
+chrome.runtime.onMessage.addListener(msg => {
+	//console.log('new color: '+msg.color);
+	if (msg.color) setColor(parseColor(msg.color));
 });
 
 })();
