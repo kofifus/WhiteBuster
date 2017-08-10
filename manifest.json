@@ -1,11 +1,11 @@
 {
 	"manifest_version": 2,
 	"name": "WhiteBuster",
-	"version": "1.2.3",
+	"version": "1.2.4",
 
 	"description": "Busting whites since 2017",
 	"browser_action": {
-		"default_icon": "whitebuster.png",
+		"default_icon": "whitebuster128.png",
 		"default_popup": "popup.html"
 	},
 
@@ -18,13 +18,18 @@
 	],
 
 	"background": {
-    "scripts": ["background.js"]
-  },
+		"scripts": ["background.js"]
+	},
 
 	"permissions": [
 		"storage",
-		"tabs", 
 		"http://*/*", 
 		"https://*/*"
-	]	
+	],
+
+	"icons": { 
+		"16": "whitebuster16.png",
+		"48": "whitebuster48.png",
+		"128": "whitebuster128.png" 
+	}
 }
