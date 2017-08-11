@@ -32,12 +32,25 @@ function iterateCSS(f) {
 }
 
 function convertCSS() {
-	iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
-		const lcPropertyName=propertyName.toLowerCase();
-		if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
-		
-		let s=convertBGstr(propertyValue);
-		if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
+	const self=convertCSS;
+
+	return new Promise((resolve, reject) => {
+		if (self.cssLength && self.cssLength === document.styleSheets.length) {
+			resolve();
+
+		} else {
+			iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
+				const lcPropertyName=propertyName.toLowerCase();
+				if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
+				
+				let s=convertBGstr(propertyValue);
+				if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
+				//if (s!==propertyValue) console.log(selector+' / '+propertyName+' : '+propertyValue +' => '+s);
+			});
+			
+			self.cssLength=document.styleSheets.length;
+			setTimeout(resolve, 0);
+		}
 	});
 }
 
@@ -58,7 +71,7 @@ function convertElem(elem) {
 	if (!elem.style) return;
 	const body=(elem===document.body), bg = elem.style.backgroundColor;		
 
-	if (elem===document.body) {
+	if (elem===document.documentElement || elem===document.body) {
 		let cbg=getBGcolor(elem, null);
 		if ((!bg && !cbg) || isTransparent(cbg)) {
 			setBGcolor(elem, RGBstr);
@@ -81,10 +94,10 @@ function convertElem(elem) {
 	}
 }
 
-function convertAllElems(root=document) {
+function convertAllElems(root) {
 	if (!root.getElementsByTagName) return;
 	if (root.tagName==='IFRAME') try { root=elem.contentDocument; } catch(e) {};
-	if (root!=document) convertElem(root);
+	convertElem(root);
 
 	for (const elem of root.getElementsByTagName('*')) {
 		if (elem.tagName==='IFRAME') {
@@ -95,34 +108,22 @@ function convertAllElems(root=document) {
 	}
 }
 
-function processMutations(addedNodes) {
-	addedNodes.forEach(convertAllElems);
-	addedNodes.length=0;
-}	
-
 function handleMutations(mutations, observer) {
-	const self=handleMutations;
-	if (!self.addedNodes) self.addedNodes=[];
-	
-	if (self.cssLength && self.cssLength !== document.styleSheets.length) convertCSS();
-	self.cssLength=document.styleSheets.length;
-
 	observer.disconnect();
 
-	for (const mutation of mutations) {
-		if (mutation.type === 'attributes') convertElem(mutation.target);
-		for (const elem of mutation.addedNodes) {
-			if (elem.nodeType === Node.ELEMENT_NODE) {
-				convertElem(elem);
-				self.addedNodes.push(elem);
+	convertCSS().then(() => {
+		for (const mutation of mutations) {
+			if (mutation.type === 'attributes') convertElem(mutation.target);
+			for (const elem of mutation.addedNodes) {
+				if (elem.nodeType === Node.ELEMENT_NODE) convertElem(elem);
 			}
 		}
-	}
 
-	observer.connect();
+		observer.connect();
+	});
 }
 
-function setColor(color) {
+function whitebust(color) {
 	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
 	
 	if (!color) return;
@@ -132,26 +133,23 @@ function setColor(color) {
 	document.documentElement.style.setProperty('--whitebusterR', String(color[0]));
 	document.documentElement.style.setProperty('--whitebusterG', String(color[1]));
 	document.documentElement.style.setProperty('--whitebusterB', String(color[2]));
-}
-
-function whitebust(color) {
-	if (!color) return;
-	setColor(color);
 
 	if (whitebust.alredyRun) return;
 	whitebust.alredyRun=true;
 
-	convertCSS();
-	convertAllElems();
+	convertCSS().then(() => {
+		convertAllElems(document.documentElement);
 
-	const observer = new MutationObserver(handleMutations);
-	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
-	observer.connect();
+		const observer = new MutationObserver(handleMutations);
+		observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
+		observer.connect();
+	});
 }
 
 if (window.WHITEBUSTERINJECTED) return;
+window.WHITEBUSTERINJECTED=true;
+
 chrome.storage.sync.get(null, storage => { if (!chrome.runtime.lastError) whitebust(storage.color); });
 chrome.runtime.onMessage.addListener(msg => { if (!chrome.runtime.lastError) whitebust(msg.color); });
-window.WHITEBUSTERINJECTED=true;
 
 })();
