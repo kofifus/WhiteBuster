@@ -62,8 +62,8 @@ function isTransparent(bgStr) {
 }
 
 function convertElem(elem) {
-	if (elem.tagName==='IFRAME') return;
-	if (!elem.style) return;
+	if (!elem.style || elem.tagName==='META' || elem.tagName==='SCRIPT' || elem.tagName==='LINK' || elem.tagName==='STYLE' || elem.tagName==='IFRAME' || elem instanceof SVGElement) return;
+
 	const body=(elem===document.body), bg = elem.style.backgroundColor;		
 
 	if (elem===document.documentElement || elem===document.body) {
@@ -95,12 +95,13 @@ function convertAllElems(root) {
 
 	if (!root.getElementsByTagName) return;
 
-	const now=performance.now(), elems=root.getElementsByTagName('*'), t1=performance.now()-now;
+	//const now=performance.now()
+	const elems=root.getElementsByTagName('*');
 	for (const elem of elems) {
-		if (elem.tagName==='IFRAME') continue;
+		if (!elem.style || elem.tagName==='META' || elem.tagName==='SCRIPT' || elem.tagName==='LINK' || elem.tagName==='STYLE' || elem.tagName==='IFRAME' || elem instanceof SVGElement) continue; // inline for speed
 		convertElem(elem);
 	}
-	if (root===document.documentElement) console.log('whitebuster: '+elems.length+' '+t1+' '+(performance.now()-now));
+	//if (root===document.documentElement) console.log('whitebuster: '+elems.length+' '+(performance.now()-now));
 }
 
 function handleMutations(mutations, observer) {
