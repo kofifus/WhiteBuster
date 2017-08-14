@@ -33,34 +33,28 @@ function iterateCSS(f) {
 
 function convertCSS() {
 	const self=convertCSS;
+	if (self.cssLength && self.cssLength === document.styleSheets.length) return;
 
-	return new Promise((resolve, reject) => {
-		if (self.cssLength && self.cssLength === document.styleSheets.length) {
-			resolve();
-
-		} else {
-			iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
-				const lcPropertyName=propertyName.toLowerCase();
-				if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
-				
-				let s=convertBGstr(propertyValue);
-				if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
-				//if (s!==propertyValue) console.log(selector+' / '+propertyName+' : '+propertyValue +' => '+s);
-			});
-			
-			self.cssLength=document.styleSheets.length;
-			setTimeout(resolve, 0);
-		}
+	iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
+		const lcPropertyName=propertyName.toLowerCase();
+		if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
+		
+		let s=convertBGstr(propertyValue);
+		if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
+		//if (s!==propertyValue) console.log(selector+' / '+propertyName+' : '+propertyValue +' => '+s);
 	});
+	
+	self.cssLength=document.styleSheets.length;
 }
 
 
 function getBGcolor(elem) {
-	try { return window.getComputedStyle(elem, null).getPropertyValue('background-color'); } catch (e) { return ''; }
+	if (!elem.style) return '';
+	return window.getComputedStyle(elem, null).getPropertyValue('background-color');
 }
 
 function setBGcolor(elem, color) {
-	try { elem.style.backgroundColor = color; } catch (e) { /* swallow error */ }
+	if (elem.style) elem.style.backgroundColor = color;
 }
 
 function isTransparent(bgStr) {
@@ -68,6 +62,7 @@ function isTransparent(bgStr) {
 }
 
 function convertElem(elem) {
+	if (elem.tagName==='IFRAME') return;
 	if (!elem.style) return;
 	const body=(elem===document.body), bg = elem.style.backgroundColor;		
 
@@ -95,32 +90,31 @@ function convertElem(elem) {
 }
 
 function convertAllElems(root) {
-	if (!root.getElementsByTagName) return;
-	if (root.tagName==='IFRAME') try { root=elem.contentDocument; } catch(e) {};
+	if (root.tagName==='IFRAME') return;
 	convertElem(root);
 
-	for (const elem of root.getElementsByTagName('*')) {
-		if (elem.tagName==='IFRAME') {
-			try { convertAllElems(elem.contentDocument); } catch(e) {};
-		} else {
-			convertElem(elem);
-		}
+	if (!root.getElementsByTagName) return;
+
+	const now=performance.now(), elems=root.getElementsByTagName('*'), t1=performance.now()-now;
+	for (const elem of elems) {
+		if (elem.tagName==='IFRAME') continue;
+		convertElem(elem);
 	}
+	if (root===document.documentElement) console.log('whitebuster: '+elems.length+' '+t1+' '+(performance.now()-now));
 }
 
 function handleMutations(mutations, observer) {
 	observer.disconnect();
 
-	convertCSS().then(() => {
-		for (const mutation of mutations) {
-			if (mutation.type === 'attributes') convertElem(mutation.target);
-			for (const elem of mutation.addedNodes) {
-				if (elem.nodeType === Node.ELEMENT_NODE) convertElem(elem);
-			}
+	convertCSS();
+	for (const mutation of mutations) {
+		if (mutation.type === 'attributes') convertElem(mutation.target);
+		for (const elem of mutation.addedNodes) {
+			if (elem.nodeType === Node.ELEMENT_NODE) convertAllElems(elem);
 		}
+	}
 
-		observer.connect();
-	});
+	observer.connect();
 }
 
 function whitebust(color) {
@@ -130,6 +124,8 @@ function whitebust(color) {
 	try { color=JSON.parse(color); } catch(err) { return; }
 	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
 
+	if (!whitebust.alredyRun && (color[0]===255 && color[1] === 255 && color[2]===255)) return;
+
 	document.documentElement.style.setProperty('--whitebusterR', String(color[0]));
 	document.documentElement.style.setProperty('--whitebusterG', String(color[1]));
 	document.documentElement.style.setProperty('--whitebusterB', String(color[2]));
@@ -137,13 +133,12 @@ function whitebust(color) {
 	if (whitebust.alredyRun) return;
 	whitebust.alredyRun=true;
 
-	convertCSS().then(() => {
-		convertAllElems(document.documentElement);
+	convertCSS()
+	convertAllElems(document.documentElement);
 
-		const observer = new MutationObserver(handleMutations);
-		observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
-		observer.connect();
-	});
+	const observer = new MutationObserver(handleMutations);
+	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
+	observer.connect();
 }
 
 if (window.WHITEBUSTERINJECTED) return;
