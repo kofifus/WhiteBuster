@@ -49,7 +49,7 @@ function convertCSS() {
 
 
 function getBGcolor(elem) {
-	if (!elem.style) return '';
+	if (!elem.style) return undefined;
 	return window.getComputedStyle(elem, null).getPropertyValue('background-color');
 }
 
@@ -62,7 +62,8 @@ function isTransparent(bgStr) {
 }
 
 function convertElem(elem) {
-	if (!elem.style || elem.tagName==='META' || elem.tagName==='SCRIPT' || elem.tagName==='LINK' || elem.tagName==='STYLE' || elem.tagName==='IFRAME' || elem instanceof SVGElement) return;
+	if (elem && elem.tagName==='IFRAME') try { elem=elem.contentDocument.body || elem.contentWindow.document.body; } catch(err) { return; /* CORS */ }
+	if (!elem || !elem.style || elem instanceof SVGElement) return;
 
 	const body=(elem===document.body), bg = elem.style.backgroundColor;		
 
@@ -89,19 +90,19 @@ function convertElem(elem) {
 	}
 }
 
+
 function convertAllElems(root) {
-	if (root.tagName==='IFRAME') return;
 	convertElem(root);
+	if (root && root.tagName==='IFRAME') try { convertElem(root = root.contentDocument || root.contentWindow.document); } catch(err) { return; /* CORS */  }
 
 	if (!root.getElementsByTagName) return;
-
-	//const now=performance.now()
 	const elems=root.getElementsByTagName('*');
+
 	for (const elem of elems) {
-		if (!elem.style || elem.tagName==='META' || elem.tagName==='SCRIPT' || elem.tagName==='LINK' || elem.tagName==='STYLE' || elem.tagName==='IFRAME' || elem instanceof SVGElement) continue; // inline for speed
+		if (!elem.style || elem instanceof SVGElement) continue; // inline for speed
 		convertElem(elem);
+		if (elem.tagName==='IFRAME') try { convertAllElems(elem.contentDocument || elem.contentWindow.document); } catch(err) { /* CORS */ };
 	}
-	//if (root===document.documentElement) console.log('whitebuster: '+elems.length+' '+(performance.now()-now));
 }
 
 function handleMutations(mutations, observer) {
@@ -120,9 +121,10 @@ function handleMutations(mutations, observer) {
 
 function whitebust(color) {
 	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
-	
+
+	const now=performance.now();
 	if (!color) return;
-	try { color=JSON.parse(color); } catch(err) { return; }
+	if (typeof color==='string') try { color=JSON.parse(color); } catch(err) { return; }
 	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
 
 	if (!whitebust.alredyRun && (color[0]===255 && color[1] === 255 && color[2]===255)) return;
@@ -134,12 +136,14 @@ function whitebust(color) {
 	if (whitebust.alredyRun) return;
 	whitebust.alredyRun=true;
 
-	convertCSS()
+	convertCSS();
 	convertAllElems(document.documentElement);
 
 	const observer = new MutationObserver(handleMutations);
 	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
 	observer.connect();
+
+	console.log('Whitebusted '+(performance.now()-now)+' ms');
 }
 
 if (window.WHITEBUSTERINJECTED) return;
