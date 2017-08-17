@@ -93,7 +93,13 @@ function convertElem(elem) {
 
 function convertAllElems(root) {
 	convertElem(root);
-	if (root && root.tagName==='IFRAME') try { convertElem(root = root.contentDocument || root.contentWindow.document); } catch(err) { return; /* CORS */  }
+	if (root && root.tagName==='IFRAME') try { 
+		root = root.contentDocument || root.contentWindow.document; 
+		convertElem(root);
+	} 
+	catch(err) { 
+		return; /* CORS */  
+	}
 
 	if (!root.getElementsByTagName) return;
 	const elems=root.getElementsByTagName('*');
@@ -101,7 +107,9 @@ function convertAllElems(root) {
 	for (const elem of elems) {
 		if (!elem.style || elem instanceof SVGElement) continue; // inline for speed
 		convertElem(elem);
-		if (elem.tagName==='IFRAME') try { convertAllElems(elem.contentDocument || elem.contentWindow.document); } catch(err) { /* CORS */ };
+		if (elem.tagName==='IFRAME') {
+			try { convertAllElems(elem.contentDocument || elem.contentWindow.document); } catch(err) { /* CORS */ };
+		}
 	}
 }
 
@@ -143,7 +151,7 @@ function whitebust(color) {
 	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
 	observer.connect();
 
-	console.log('Whitebusted '+(performance.now()-now)+' ms');
+	//console.log('Whitebusted '+(performance.now()-now)+' ms');
 }
 
 if (window.WHITEBUSTERINJECTED) return;
