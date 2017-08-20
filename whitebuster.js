@@ -1,20 +1,15 @@
 (function () { 
 'use strict';
 
-const RGBstr='rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
-let RGBAstr='rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
-
-function convertBGstr(str) {
-	let regRgb = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
-	let regRgba = new RegExp('rgba\\((?:255, 255, 255|254, 254, 254),(.+)\\)', 'ig');
-
-	let res=str.replace(regRgb, RGBstr);
-	res=res.replace(regRgba, RGBAstr+' $1)');
-
-	return res;
+const RGBstr = 'rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
+const RGBAstr = 'rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
+const RGBreg = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))');
+const convertBGstr = str => {
+	const s=str.toLowerCase().replace(RGBreg, RGBstr).replace('rgba(255, 255, 255,', RGBAstr).replace('rgba(254, 254, 254,', RGBAstr);
+	return s===str ? '' : s;
 }
 
-function iterateCSS(f) {
+function convertCSS() {
 	for (const styleSheet of window.document.styleSheets) {
 		const classes = styleSheet.rules || styleSheet.cssRules;
 		if (!classes) continue;
@@ -25,112 +20,79 @@ function iterateCSS(f) {
 			if (!selector || !style.cssText) continue;
 			for (let i=0; i<style.length; i++) {
 				const propertyName=style.item(i);
-				if (f(selector, propertyName, style.getPropertyValue(propertyName), style.getPropertyPriority(propertyName), cssRule)===false) return;
+				if (propertyName!=='background-color') continue;
+				const propertyValue=style.getPropertyValue(propertyName), s=convertBGstr(propertyValue);
+				if (s) cssRule.style.setProperty(propertyName, s, style.getPropertyPriority(propertyName));
 			}
 		}
 	}
 }
 
-function convertCSS() {
-	const self=convertCSS;
-	if (self.cssLength && self.cssLength === document.styleSheets.length) return;
+const getBGcolor = elem => elem.style ? window.getComputedStyle(elem, null).getPropertyValue('background-color') : undefined;
+const isTransparent = bgStr => bgStr === undefined || bgStr === 'transparent' || bgStr.startsWith('rgba(0, 0, 0, 0)');
 
-	iterateCSS( (selector, propertyName, propertyValue, propertyPriority, cssRule) => {
-		const lcPropertyName=propertyName.toLowerCase();
-		if (lcPropertyName!=='background' && lcPropertyName!=='background-color') return;
-		
-		let s=convertBGstr(propertyValue);
-		if (s!==propertyValue) cssRule.style.setProperty(propertyName, s, propertyPriority);
-		//if (s!==propertyValue) console.log(selector+' / '+propertyName+' : '+propertyValue +' => '+s);
-	});
-	
-	self.cssLength=document.styleSheets.length;
-}
+const convertElem = elem => {
+	if (!elem.style || elem instanceof SVGElement) return;
 
-
-function getBGcolor(elem) {
-	if (!elem.style) return undefined;
-	return window.getComputedStyle(elem, null).getPropertyValue('background-color');
-}
-
-function setBGcolor(elem, color) {
-	if (elem.style) elem.style.backgroundColor = color;
-}
-
-function isTransparent(bgStr) {
-	return (bgStr === undefined || bgStr === 'transparent' || bgStr.startsWith('rgba(0, 0, 0, 0)'));
-}
-
-function convertElem(elem) {
-	if (elem && elem.tagName==='IFRAME') try { elem=elem.contentDocument.body || elem.contentWindow.document.body; } catch(err) { return; /* CORS */ }
-	if (!elem || !elem.style || elem instanceof SVGElement) return;
-
-	const body=(elem===document.body), bg = elem.style.backgroundColor;		
+	const bg = elem.style.backgroundColor;		
 
 	if (elem===document.documentElement || elem===document.body) {
-		let cbg=getBGcolor(elem, null);
+		const cbg=getBGcolor(elem, null);
 		if ((!bg && !cbg) || isTransparent(cbg)) {
-			setBGcolor(elem, RGBstr);
+			elem.style.backgroundColor = RGBstr;
 		} else {
-			let newCbg=convertBGstr(cbg);
-			if (newCbg !== cbg) setBGcolor(elem, newCbg);
+			const newCbg=convertBGstr(cbg);
+			if (newCbg) elem.style.backgroundColor = newCbg;
 		}
 
 	} else if (bg === RGBstr || bg.startsWith(RGBAstr) || isTransparent(bg)) {
 		// nothing to do
 
 	} else if (!bg) {
-		let cbg=getBGcolor(elem, null);
-		let newCbg=convertBGstr(cbg);
-		if (cbg && newCbg !== cbg) setBGcolor(elem, newCbg);
+		const cbg=getBGcolor(elem, null), newCbg=convertBGstr(cbg);
+		if (newCbg) elem.style.backgroundColor = newCbg;
 
 	} else {
-		let newBg=convertBGstr(bg);
-		if (newBg !== bg) setBGcolor(elem, newBg);
+		const newbg=convertBGstr(bg);
+		if (newbg) elem.style.backgroundColor = newbg;
 	}
 }
 
-
 function convertAllElems(root) {
-	convertElem(root);
-	if (root && root.tagName==='IFRAME') try { 
-		root = root.contentDocument || root.contentWindow.document; 
-		convertElem(root);
-	} 
-	catch(err) { 
-		return; /* CORS */  
-	}
+	if (!root) return;
+	if (root.tagName==='IFRAME') try { convertAllElems(elem.contentDocument || elem.contentWindow.document); } catch(err) { /* CORS */ };
 
-	if (!root.getElementsByTagName) return;
-	const elems=root.getElementsByTagName('*');
-
-	for (const elem of elems) {
-		if (!elem.style || elem instanceof SVGElement) continue; // inline for speed
-		convertElem(elem);
-		if (elem.tagName==='IFRAME') {
-			try { convertAllElems(elem.contentDocument || elem.contentWindow.document); } catch(err) { /* CORS */ };
+	if (root.getElementsByTagName) {
+		for (const elem of root.getElementsByTagName('*')) {
+			convertElem(elem);
+			if (elem.tagName==='IFRAME') try { convertAllElems(elem.contentDocument || elem.contentWindow.document); } catch(err) { /* CORS */ };
 		}
 	}
 }
 
 function handleMutations(mutations, observer) {
-	observer.disconnect();
-
-	convertCSS();
+	if (!handleMutations.elems) handleMutations.elems=[];
 	for (const mutation of mutations) {
-		if (mutation.type === 'attributes') convertElem(mutation.target);
-		for (const elem of mutation.addedNodes) {
-			if (elem.nodeType === Node.ELEMENT_NODE) convertAllElems(elem);
+		if (mutation.type === 'attributes') {
+			handleMutations.elems.push(mutation.target);
+		} else {
+			for (const elem of mutation.addedNodes) if (elem.nodeType === Node.ELEMENT_NODE) handleMutations.elems.push(elem);
 		}
 	}
 
-	observer.connect();
+	clearTimeout(handleMutations.timeout);
+	handleMutations.timeout = setTimeout(() => {
+		observer.disconnect();
+		convertCSS();
+		handleMutations.elems.forEach(convertAllElems);
+		handleMutations.elems.length=0;
+		observer.connect();
+	}, 500);
 }
 
 function whitebust(color) {
 	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
 
-	const now=performance.now();
 	if (!color) return;
 	if (typeof color==='string') try { color=JSON.parse(color); } catch(err) { return; }
 	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
@@ -150,8 +112,6 @@ function whitebust(color) {
 	const observer = new MutationObserver(handleMutations);
 	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
 	observer.connect();
-
-	//console.log('Whitebusted '+(performance.now()-now)+' ms');
 }
 
 if (window.WHITEBUSTERINJECTED) return;
