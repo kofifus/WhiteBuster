@@ -9,6 +9,32 @@ const convertBGstr = str => {
 	return s===str ? '' : s;
 }
 
+function addCSSclass(rules) {
+	const style = document.createElement("style");
+	style.appendChild(document.createTextNode("")); // WebKit hack :(
+	document.head.appendChild(style);
+	const sheet = style.sheet;
+	rules.forEach((rule, index) => { try { sheet.insertRule(rule.selector + "{" + rule.rule + "}", index); } catch (e) {}; });
+}
+
+// If newState is provided add/remove theClass accordingly, otherwise toggle theClass
+function toggleClass(elem, theClass, newState, first = false) {
+	const matchRegExp = new RegExp('(?:^|\\s)' + theClass + '(?!\\S)', 'g');
+	const add = (arguments.length > 2 ? !!newState : (elem.className.match(matchRegExp) == null));
+
+	elem.className = elem.className.replace(matchRegExp, ''); // clear all
+	if (add) {
+		if (first) elem.className = theClass + ' ' + elem.className;
+		else elem.className += ' ' + theClass;
+	}
+}
+
+
+function convertDocumentElement() {
+	addCSSclass([{ selector: '.whiteBuster', rule: 'background-color: ' + RGBstr }]);
+	toggleClass(document.documentElement, 'whiteBuster', true, true);
+}
+
 function convertCSS() {
 	for (const styleSheet of window.document.styleSheets) {
 		const classes = styleSheet.rules || styleSheet.cssRules;
@@ -71,23 +97,36 @@ function convertAllElems(root) {
 }
 
 function handleMutations(mutations, observer) {
-	if (!handleMutations.elems) handleMutations.elems=[];
-	for (const mutation of mutations) {
-		if (mutation.type === 'attributes') {
-			handleMutations.elems.push(mutation.target);
-		} else {
-			for (const elem of mutation.addedNodes) if (elem.nodeType === Node.ELEMENT_NODE) handleMutations.elems.push(elem);
-		}
+	let _=this.state; if (!_) _=this.state={
+		process: () => {
+			observer.disconnect();
+			convertCSS();
+			_.elems.forEach(convertAllElems);
+			_.elems.length=0;
+			_.lastRun=performance.now()
+			observer.connect();
+		},
+
+		schedule: () => {
+			clearTimeout(_.timeout);
+			_.timeout = setTimeout(() => { if ((performance.now()-_.lastRun)<700) _.schedule(); else _.process(); }, 50);
+		},
+
+		elems: [],
+		timeout: null,
+		lastRun: performance.now()-100,
 	}
 
-	clearTimeout(handleMutations.timeout);
-	handleMutations.timeout = setTimeout(() => {
-		observer.disconnect();
-		convertCSS();
-		handleMutations.elems.forEach(convertAllElems);
-		handleMutations.elems.length=0;
-		observer.connect();
-	}, 500);
+	for (const mutation of mutations) {
+		if (mutation.type === 'attributes') {
+			_.elems.push(mutation.target);
+		} else {
+			for (const elem of mutation.addedNodes) if (elem.nodeType === Node.ELEMENT_NODE) _.elems.push(elem);
+		}
+	}
+	if (_.elems.length===0) return;
+
+	_.schedule();
 }
 
 function whitebust(color) {
@@ -106,6 +145,7 @@ function whitebust(color) {
 	if (whitebust.alredyRun) return;
 	whitebust.alredyRun=true;
 
+	convertDocumentElement();
 	convertCSS();
 	convertAllElems(document.documentElement);
 
