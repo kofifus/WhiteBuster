@@ -29,13 +29,14 @@ function toggleClass(elem, theClass, newState, first = false) {
 	}
 }
 
-
-function convertDocumentElement() {
-	addCSSclass([{ selector: '.whiteBuster', rule: 'background-color: ' + RGBstr }]);
-	toggleClass(document.documentElement, 'whiteBuster', true, true);
-}
-
 function convertCSS() {
+	let _=convertCSS.state; if (!_) _=convertCSS.state={
+		nSheets: 0
+	}
+
+	if (_.nSheets===window.document.styleSheets.length) return;
+	_.nSheets=window.document.styleSheets.length;
+
 	for (const styleSheet of window.document.styleSheets) {
 		const classes = styleSheet.rules || styleSheet.cssRules;
 		if (!classes) continue;
@@ -97,10 +98,9 @@ function convertAllElems(root) {
 }
 
 function handleMutations(mutations, observer) {
-	let _=this.state; if (!_) _=this.state={
+	let _=handleMutations.state; if (!_) _=handleMutations.state={
 		process: () => {
 			observer.disconnect();
-			convertCSS();
 			_.elems.forEach(convertAllElems);
 			_.elems.length=0;
 			_.lastRun=performance.now()
@@ -114,7 +114,7 @@ function handleMutations(mutations, observer) {
 
 		elems: [],
 		timeout: null,
-		lastRun: performance.now()-100,
+		lastRun: performance.now()-600
 	}
 
 	for (const mutation of mutations) {
@@ -126,32 +126,37 @@ function handleMutations(mutations, observer) {
 	}
 	if (_.elems.length===0) return;
 
+	convertCSS();
 	_.schedule();
 }
 
 function whitebust(color) {
-	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
+	let _=whitebust.state; if (!_) _=whitebust.state={
+		validNum: n => { return Number.isInteger(n) && n>=0 && n<=255; },
+		observer: null
+	}
 
 	if (!color) return;
 	if (typeof color==='string') try { color=JSON.parse(color); } catch(err) { return; }
-	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[255, 255, 255];
+	if (!Array.isArray(color) || color.length!=3 || !_.validNum(color[0]) || !_.validNum(color[1]) || !_.validNum(color[2])) color=[255, 255, 255];
 
 	if (!whitebust.alredyRun && (color[0]===255 && color[1] === 255 && color[2]===255)) return;
 
+	if (_.observer) _.observer.disconnect();
 	document.documentElement.style.setProperty('--whitebusterR', String(color[0]));
 	document.documentElement.style.setProperty('--whitebusterG', String(color[1]));
 	document.documentElement.style.setProperty('--whitebusterB', String(color[2]));
+	if (_.observer) _.observer.connect();
 
 	if (whitebust.alredyRun) return;
 	whitebust.alredyRun=true;
 
-	convertDocumentElement();
 	convertCSS();
 	convertAllElems(document.documentElement);
 
-	const observer = new MutationObserver(handleMutations);
-	observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
-	observer.connect();
+	_.observer = new MutationObserver(handleMutations);
+	_.observer.connect=function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
+	_.observer.connect();
 }
 
 if (window.WHITEBUSTERINJECTED) return;
