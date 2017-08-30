@@ -106,7 +106,7 @@ function save() {
 	lis.forEach(lia => { if (lia[0].firstChild.disabled===false) selected=lia[0]; });
 	if (!selected) selected=lis[0][0];
 
-	let o={'color': selected.dataset.color};
+	const o={'color': selected.dataset.color};
 	lis.forEach(lia => { if (lia.length>1) o['customColor'+lia[1]]=lia[0].dataset.color; });
 
 	chrome.storage.sync.set(o);
