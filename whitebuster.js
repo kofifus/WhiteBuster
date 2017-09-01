@@ -59,7 +59,7 @@ const convertCSS = () => {
 				if (propertyName==='background-color') {
 					const newCbg=convertBGstr(propertyValue);
 					if (newCbg) cssRule.style.setProperty(propertyName, newCbg, style.getPropertyPriority(propertyName));
-				} else if (propertyName==='background-image') {
+				} else if (propertyName==='background-image' && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient'))) {
 					const newCib=convertBGstr(propertyValue);
 					if (newCib) cssRule.style.backgroundImage = newCib;
 				}
@@ -79,7 +79,9 @@ const convertElemInternal = (elem) => {
 		const cs=window.getComputedStyle(elem, null);
 		if (!bg) bg=cs.getPropertyValue('background-color');
 		if (!bi) bi=cs.getPropertyValue('background-image');
-	} 
+	}
+	if (!bi.startsWith('linear-gradient') && !bi.startsWith('radial-gradient') && !bi.startsWith('repeating-linear-gradient') && !bi.startsWith('repeating-radia-gradient')) bi='';
+ 
 	const newbg=convertBGstr(bg), newbi=convertBGstr(bi);
 	if (newbg) elem.style.backgroundColor = newbg;
 	if (newbi) elem.style.backgroundImage = newbi;
