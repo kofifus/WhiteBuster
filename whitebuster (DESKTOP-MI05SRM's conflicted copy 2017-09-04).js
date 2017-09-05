@@ -5,12 +5,11 @@ let wbcolor=[255, 255, 255];
 let observer;
 
 const RGBstr = 'rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
-const RGBreg = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
 const RGBAstr = 'rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
-const RGBAreg = new RegExp('(?:rgba\\(255, 255, 255,|rgba\\(254, 254, 254,)', 'ig');
+const RGBreg = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))');
 
 const convertBGstr = str => {
-	const s=str.replace(RGBreg, RGBstr).replace(RGBAreg, RGBAstr);
+	const s=str.toLowerCase().replace(RGBreg, RGBstr).replace('rgba(255, 255, 255,', RGBAstr).replace('rgba(254, 254, 254,', RGBAstr);
 	return s===str ? '' : s;
 }
 
@@ -57,10 +56,12 @@ const convertCSS = () => {
 			for (let i=0; i<style.length; i++) {
 				const propertyName=style.item(i);
 				const propertyValue=style.getPropertyValue(propertyName);
-				if (propertyName==='background-color' 
-						|| (propertyName==='background-image' && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient')))) {
-					const newValue=convertBGstr(propertyValue);
-					if (newValue) cssRule.style.setProperty(propertyName, newValue, style.getPropertyPriority(propertyName));
+				if (propertyName==='background-color') {
+					const newCbg=convertBGstr(propertyValue);
+					if (newCbg) cssRule.style.setProperty(propertyName, newCbg, style.getPropertyPriority(propertyName));
+				} else if (propertyName==='background-image') { // && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient'))) {
+					const newCib=convertBGstr(propertyValue);
+					if (newCib) cssRule.style.backgroundImage = newCib;
 				}
 			}
 		}
@@ -70,18 +71,16 @@ const convertCSS = () => {
 const convertElemInternal = (elem) => {
 	if (!elem || !elem.style || elem instanceof SVGElement) return;
 
-	let bg=elem.style.backgroundColor, bi=elem.style.backgroundImage, newbg, newbi;
+	let bg=elem.style.backgroundColor, bi=elem.style.backgroundImage;
 	if (!bg || !bi) {
 		const cs=window.getComputedStyle(elem, null);
 		if (!bg) bg=cs.getPropertyValue('background-color');
 		if (!bi) bi=cs.getPropertyValue('background-image');
 	}
-	if (!bi.startsWith('linear-gradient') && !bi.startsWith('radial-gradient') && !bi.startsWith('repeating-linear-gradient') && !bi.startsWith('repeating-radia-gradient')) bi='';
+	//if (!bi.startsWith('linear-gradient') && !bi.startsWith('radial-gradient') && !bi.startsWith('repeating-linear-gradient') && !bi.startsWith('repeating-radia-gradient')) bi='';
  
- 	if (bg) newbg=convertBGstr(bg);
+	const newbg=convertBGstr(bg), newbi=convertBGstr(bi);
 	if (newbg) elem.style.backgroundColor = newbg;
-
- 	if (bi) newbi=convertBGstr(bi);
 	if (newbi) elem.style.backgroundImage = newbi;
 }
 
