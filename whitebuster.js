@@ -1,18 +1,44 @@
 (function () { 
 'use strict';
 
+if (window.WHITEBUSTERINJECTED) return;
+window.WHITEBUSTERINJECTED=true;
+
 let wbcolor=[255, 255, 255];
 let observer;
 
-const RGBstr = 'rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
-const RGBreg = new RegExp('(?:white|#fff(?:fff)?|#fefefe|rgb\\(255, 255, 255\\)|rgb\\(254, 254, 254\\))', 'ig');
-const RGBAstr = 'rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
-const RGBAreg = new RegExp('(?:rgba\\(255, 255, 255,|rgba\\(254, 254, 254,)', 'ig');
+const convertBGstr = (() => {
+	const RGBarr=['white', '#fff', '#ffffff', '#fefefe', 'rgb(255, 255, 255)', 'rgb(254, 254, 254)'];
+	const RGBstr = 'rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
+	
+	const RGBAarr=['rgba(255, 255, 255,', 'rgba(254, 254, 254,'];
+	const RGBAstr = 'rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
 
-const convertBGstr = str => {
-	const s=str.replace(RGBreg, RGBstr).replace(RGBAreg, RGBAstr);
-	return s===str ? '' : s;
-}
+	const isAlnumChar = c => (c>='0' && c<='9') || (c>='A' && c<='Z') || (c>='a' && c<='z');
+
+	// case insensitive replace where 'f' is surrounded by non alnum chars
+	const replace = (s, f, r) => {
+		const lcs=s.toLowerCase(), lcf = f.toLowerCase(), flen=f.length;
+		let res='', pos=0, next=lcs.indexOf(lcf, pos);
+		if (next===-1) return s;
+
+		do {
+			if ((next===0 || !isAlnumChar(s[next-1])) && (next+flen===s.length || !isAlnumChar(s[next+flen]))) {
+				res+=s.substring(pos, next)+r;
+			} else {
+				res+=s.substring(pos, next+flen);  
+			}
+			pos=next+flen;
+		} while ((next=lcs.indexOf(lcf, pos)) !== -1);
+		return res+s.substring(pos);
+	}
+
+	return str => {
+		RGBarr.forEach(f => str=replace(str, f, RGBstr));
+		RGBAarr.forEach(f => str=replace(str, f, RGBAstr));
+		return str;
+	}; 
+})();
 
 const parseColor = c => {
 	if (!c) return [255, 255, 255];
@@ -38,34 +64,34 @@ const setColor = (color) => {
 	if (observer) observer.connect();
 }
 
-const convertCSS = () => {
-	const S = convertCSS.S || (convertCSS.S = {
-		nSheets: 0,
-	});
+const convertCSS = (() => {
+	let nSheets = 0;
 
-	if (S.nSheets===window.document.styleSheets.length) return;
-	S.nSheets=window.document.styleSheets.length;
+	return () => {
+		if (nSheets===window.document.styleSheets.length) return;
+		nSheets=window.document.styleSheets.length;
 
-	for (const styleSheet of window.document.styleSheets) {
-		const classes = styleSheet.rules || styleSheet.cssRules;
-		if (!classes) continue;
+		for (const styleSheet of window.document.styleSheets) {
+			const classes = styleSheet.rules || styleSheet.cssRules;
+			if (!classes) continue;
 
-		for (const cssRule of classes) {
-			if (cssRule.type !== 1 || !cssRule.style) continue;
-			const selector = cssRule.selectorText, style=cssRule.style;
-			if (!selector || !style.cssText) continue;
-			for (let i=0; i<style.length; i++) {
-				const propertyName=style.item(i);
-				const propertyValue=style.getPropertyValue(propertyName);
-				if (propertyName==='background-color' 
-						|| (propertyName==='background-image' && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient')))) {
-					const newValue=convertBGstr(propertyValue);
-					if (newValue) cssRule.style.setProperty(propertyName, newValue, style.getPropertyPriority(propertyName));
+			for (const cssRule of classes) {
+				if (cssRule.type !== 1 || !cssRule.style) continue;
+				const selector = cssRule.selectorText, style=cssRule.style;
+				if (!selector || !style.cssText) continue;
+				for (let i=0; i<style.length; i++) {
+					const propertyName=style.item(i);
+					const propertyValue=style.getPropertyValue(propertyName);
+					if (propertyName==='background-color' 
+							|| (propertyName==='background-image' && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient')))) {
+						const newValue=convertBGstr(propertyValue);
+						if (newValue!==propertyValue) cssRule.style.setProperty(propertyName, newValue, style.getPropertyPriority(propertyName));
+					}
 				}
 			}
 		}
 	}
-}
+})();
 
 const convertElemInternal = (elem) => {
 	if (!elem || !elem.style || elem instanceof SVGElement) return;
@@ -79,10 +105,10 @@ const convertElemInternal = (elem) => {
 	if (!bi.startsWith('linear-gradient') && !bi.startsWith('radial-gradient') && !bi.startsWith('repeating-linear-gradient') && !bi.startsWith('repeating-radia-gradient')) bi='';
  
  	if (bg) newbg=convertBGstr(bg);
-	if (newbg) elem.style.backgroundColor = newbg;
+	if (newbg!==bg) elem.style.backgroundColor = newbg;
 
  	if (bi) newbi=convertBGstr(bi);
-	if (newbi) elem.style.backgroundImage = newbi;
+	if (newbi!==bi) elem.style.backgroundImage = newbi;
 }
 
 const convertAllElems = root => {
@@ -100,42 +126,48 @@ const convertElem = elem => {
 }
 
 
-function handleMutations(mutations, observer) {
-	const S = handleMutations.S || (handleMutations.S = {
-		elems: [],
-		timeout: null,
-	});
+const handleMutations = (() => {
+	let elems = [];
+	let timeout = null;
 
-	convertCSS();
+	const  process = () => {
+		if (observer && observer.options.attributes) observer.disconnect();
+		elems.forEach(convertElem);
+		elems.length=0;
+		timeout=null;
+		if (observer && observer.options.attributes) observer.connect();
+	};
 
-	for (const mutation of mutations) {
-		if (mutation.type === 'attributes') {
-			S.elems.push(mutation.target);
-		} else {
-			for (const elem of mutation.addedNodes) {
-				if (elem.nodeType!== Node.ELEMENT_NODE || !elem.style) continue;
-				S.elems.push(elem);
+	return (mutations, observer)  => {
+		convertCSS();
+
+		for (const mutation of mutations) {
+			if (mutation.type === 'attributes') {
+				elems.push(mutation.target);
+			} else {
+				for (const elem of mutation.addedNodes) {
+					if (elem.nodeType!== Node.ELEMENT_NODE || !elem.style) continue;
+					elems.push(elem);
+				}
 			}
 		}
-	}
-	
-	if (S.elems.length> 0 && !S.timeout) S.timeout=setTimeout(() => {
-		observer.disconnect();
-		S.elems.forEach(convertElem);
-		S.elems.length=0;
-		S.timeout=null;
-		observer.connect();
-	}, 700);
-}
+		if (elems.length===0) return;
 
-if (window.WHITEBUSTERINJECTED) return;
-window.WHITEBUSTERINJECTED=true;
+		if (document.readyState==='loading') process(); else if (!timeout) timeout=setTimeout(() => process(), 700);
+	};
+})();
+
+const hookOvserver = (withAttributes) => {
+	if (observer) observer.disconnect();
+	observer=new MutationObserver(handleMutations);
+	observer.options = { childList: true, subtree:true, attributes: !!withAttributes };
+	observer.connect = function() { this.observe(document, observer.options); };
+	observer.connect();
+}
 
 setColor();
 
-observer=new MutationObserver(handleMutations);
-observer.connect = function() { this.observe(document, { childList: true, subtree:true, attributes: true }); };
-observer.connect();
+hookOvserver(false);
 
 chrome.storage.sync.get(null, storage => { if (!chrome.runtime.lastError) setColor(storage.color); });
 
@@ -144,5 +176,7 @@ chrome.runtime.onMessage.addListener(msg => {
 	setColor(msg.color); 
 	if (msg.install) convertAllElems(document.documentElement); 
 });
+
+document.onreadystatechange = () => { if (document.readyState === "complete") hookOvserver(true); };
 
 })();
