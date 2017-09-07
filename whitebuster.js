@@ -34,8 +34,10 @@
 		}
 
 		return str => {
+		  //const orgStr=str;
 			RGBarr.forEach(f => str = replace(str, f, RGBstr));
 			RGBAarr.forEach(f => str = replace(str, f, RGBAstr));
+			//if (str!=orgStr) console.log(orgStr + ' => '+ str);
 			return str;
 		};
 	})();
@@ -96,13 +98,28 @@
 		};
 	})();
 
+
+	const getCbgcolor = (() => {
+		const rTrans = new RegExp('^(transparent|rgba\\(\\w*, \\w*, \\w*, 0\\)|initial|)$', '');
+
+		return (elem, cstyle) => {
+			while (true) {
+				const bg=cstyle.getPropertyValue('background-color');
+				if (!rTrans.test(bg)) return bg;
+				elem = elem.parentElement;
+				if (!elem || elem === document.documentElement) return 'white';
+				cstyle = window.getComputedStyle(elem);
+			}
+		};
+	})();
+
 	const convertElemInternal = (elem) => {
 		if (!elem || !elem.style || elem instanceof SVGElement) return;
 
 		let bg = elem.style.backgroundColor, bi = elem.style.backgroundImage, newbg, newbi;
 		if (!bg || !bi) {
-			const cs = window.getComputedStyle(elem, null);
-			if (!bg) bg = cs.getPropertyValue('background-color');
+			const cs = window.getComputedStyle(elem);
+			if (!bg) bg = getCbgcolor(elem, cs);
 			if (!bi) bi = cs.getPropertyValue('background-image');
 		}
 		if (!bi.startsWith('linear-gradient') && !bi.startsWith('radial-gradient') && !bi.startsWith('repeating-linear-gradient') && !bi.startsWith('repeating-radia-gradient')) bi = '';
