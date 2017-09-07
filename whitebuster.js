@@ -7,40 +7,45 @@
 	let wbcolor = [255, 255, 255];
 	let observer;
 
-	const convertBGstr = (() => {
-		const RGBarr = ['white', '#fff', '#ffffff', '#fefefe', 'rgb(255, 255, 255)', 'rgb(254, 254, 254)'];
-		const RGBstr = 'rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))';
+	const convertBGstr = (str) => {
+		const S = convertBGstr.S || (convertBGstr.S = {
+			RGBarr: ['white', '#fff', '#ffffff', '#fefefe', 'rgb(255, 255, 255)', 'rgb(254, 254, 254)'],
+			RGBstr: 'rgb(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB))',
 
-		const RGBAarr = ['rgba(255, 255, 255,', 'rgba(254, 254, 254,'];
-		const RGBAstr = 'rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),';
+			RGBAarr: ['rgba(255, 255, 255,', 'rgba(254, 254, 254,'],
+			RGBAstr: 'rgba(var(--whitebusterR), var(--whitebusterG), var(--whitebusterB),',
 
-		const isAlnumChar = c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+			// changing transparent to something that will not be returned as 'rgba(0, 0, 0, 0)' from getComputedStyle
+			RGBAtransparentArr: ['rgba(0, 0, 0, 0)', 'transparent', 'initial'],
+			RGBAtransparentStr: 'rgba(74, 141, 239, 0)',
 
-		// case insensitive replace where 'f' is surrounded by non alnum chars
-		const replace = (s, f, r) => {
-			const lcs = s.toLowerCase(), lcf = f.toLowerCase(), flen = f.length;
-			let res = '', pos = 0, next = lcs.indexOf(lcf, pos);
-			if (next === -1) return s;
+			isAlnumChar: c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'),
 
-			do {
-				if ((next === 0 || !isAlnumChar(s[next - 1])) && (next + flen === s.length || !isAlnumChar(s[next + flen]))) {
-					res += s.substring(pos, next) + r;
-				} else {
-					res += s.substring(pos, next + flen);
-				}
-				pos = next + flen;
-			} while ((next = lcs.indexOf(lcf, pos)) !== -1);
-			return res + s.substring(pos);
-		}
+			// case insensitive replace where 'f' is surrounded by non alnum chars
+			replace: (s, f, r) => {
+				const lcs = s.toLowerCase(), lcf = f.toLowerCase(), flen = f.length;
+				let res = '', pos = 0, next = lcs.indexOf(lcf, pos);
+				if (next === -1) return s;
 
-		return str => {
-		  //const orgStr=str;
-			RGBarr.forEach(f => str = replace(str, f, RGBstr));
-			RGBAarr.forEach(f => str = replace(str, f, RGBAstr));
-			//if (str!=orgStr) console.log(orgStr + ' => '+ str);
-			return str;
-		};
-	})();
+				do {
+					if ((next === 0 || !S.isAlnumChar(s[next - 1])) && (next + flen === s.length || !S.isAlnumChar(s[next + flen]))) {
+						res += s.substring(pos, next) + r;
+					} else {
+						res += s.substring(pos, next + flen);
+					}
+					pos = next + flen;
+				} while ((next = lcs.indexOf(lcf, pos)) !== -1);
+				return res + s.substring(pos);
+			}
+		});
+
+	  //const orgStr=str;
+		S.RGBarr.forEach(f => str = S.replace(str, f, S.RGBstr));
+		S.RGBAarr.forEach(f => str = S.replace(str, f, S.RGBAstr));
+		S.RGBAtransparentArr.forEach(f => str = S.replace(str, f, S.RGBAtransparentStr));
+		//if (str!=orgStr) console.log(orgStr + ' => '+ str);
+		return str;
+	}
 
 	const parseColor = c => {
 		if (!c) return [255, 255, 255];
@@ -69,54 +74,54 @@
 		if (observer) observer.connect();
 	}
 
-	const convertCSS = (() => {
-		let nSheets = 0;
+	const convertCSS = () => {
+		const S = convertCSS.S || (convertCSS.S = {
+			nSheets: 0
+		});
 
-		return () => {
-			if (nSheets === window.document.styleSheets.length) return;
-			nSheets = window.document.styleSheets.length;
+		if (S.nSheets === window.document.styleSheets.length) return;
+		S.nSheets = window.document.styleSheets.length;
 
-			for (const styleSheet of window.document.styleSheets) {
-				const classes = styleSheet.rules || styleSheet.cssRules;
-				if (!classes) continue;
+		for (const styleSheet of window.document.styleSheets) {
+			const classes = styleSheet.rules || styleSheet.cssRules;
+			if (!classes) continue;
 
-				for (const cssRule of classes) {
-					if (cssRule.type !== 1 || !cssRule.style) continue;
-					const selector = cssRule.selectorText, style = cssRule.style;
-					if (!selector || !style.cssText) continue;
-					for (let i = 0; i < style.length; i++) {
-						const propertyName = style.item(i);
-						const propertyValue = style.getPropertyValue(propertyName);
-						if (propertyName === 'background-color'
-							|| (propertyName === 'background-image' && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient')))) {
-							const newValue = convertBGstr(propertyValue);
-							if (newValue !== propertyValue) cssRule.style.setProperty(propertyName, newValue, style.getPropertyPriority(propertyName));
-						}
+			for (const cssRule of classes) {
+				if (cssRule.type !== 1 || !cssRule.style) continue;
+				const selector = cssRule.selectorText, style = cssRule.style;
+				if (!selector || !style.cssText) continue;
+				for (let i = 0; i < style.length; i++) {
+					const propertyName = style.item(i);
+					const propertyValue = style.getPropertyValue(propertyName);
+					if (propertyName === 'background-color'
+						|| (propertyName === 'background-image' && (propertyValue.startsWith('linear-gradient') || propertyValue.startsWith('radial-gradient') || propertyValue.startsWith('repeating-linear-gradient') || propertyValue.startsWith('repeating-radia-gradient')))) {
+						const newValue = convertBGstr(propertyValue);
+						if (newValue !== propertyValue) cssRule.style.setProperty(propertyName, newValue, style.getPropertyPriority(propertyName));
 					}
 				}
 			}
-		};
-	})();
+		}
+	}
 
+	const getCbgcolor = (elem, cstyle) => {
+		const S = getCbgcolor.S || (getCbgcolor.S = {
+			top: (() => { try { return window.top.document.documentElement; } catch(e) { return null; /* CORS */}})()
+		});
 
-	const getCbgcolor = (() => {
-		const rTrans = new RegExp('^(transparent|rgba\\(\\w*, \\w*, \\w*, 0\\)|initial|)$', '');
-
-		return (elem, cstyle) => {
-			while (true) {
-				const bg=cstyle.getPropertyValue('background-color');
-				if (!rTrans.test(bg)) return bg;
-				elem = elem.parentElement;
-				if (!elem || elem === document.documentElement) return 'white';
-				cstyle = window.getComputedStyle(elem);
-			}
-		};
-	})();
+		while (true) {
+			let cbg=cstyle.getPropertyValue('background-color');
+			if (cbg && cbg!='rgba(0, 0, 0, 0)') return cbg;
+			if (elem===S.top) return 'white';
+			elem = elem.parentElement;
+			if (!elem) return '';
+			cstyle = window.getComputedStyle(elem);
+		}
+	}
 
 	const convertElemInternal = (elem) => {
 		if (!elem || !elem.style || elem instanceof SVGElement) return;
 
-		let bg = elem.style.backgroundColor, bi = elem.style.backgroundImage, newbg, newbi;
+		let bg = elem.style.backgroundColor, bi = elem.style.backgroundImage;
 		if (!bg || !bi) {
 			const cs = window.getComputedStyle(elem);
 			if (!bg) bg = getCbgcolor(elem, cs);
@@ -124,11 +129,15 @@
 		}
 		if (!bi.startsWith('linear-gradient') && !bi.startsWith('radial-gradient') && !bi.startsWith('repeating-linear-gradient') && !bi.startsWith('repeating-radia-gradient')) bi = '';
 
-		if (bg) newbg = convertBGstr(bg);
-		if (newbg !== bg) elem.style.backgroundColor = newbg;
+		if (bg) {
+			const newbg = convertBGstr(bg);
+			if (newbg !== bg) elem.style.backgroundColor = newbg;
+		}
 
-		if (bi) newbi = convertBGstr(bi);
-		if (newbi !== bi) elem.style.backgroundImage = newbi;
+		if (bi) {
+			const newbi = convertBGstr(bi);
+			if (newbi !== bi) elem.style.backgroundImage = newbi;
+		}
 	}
 
 	const convertAllElems = root => {
@@ -193,6 +202,7 @@
 
 	setColor();
 
+	convertElem(document.documentElement);
 	hookOvserver(false);
 
 	chrome.storage.sync.get(null, storage => { if (!chrome.runtime.lastError) setColor(storage.color); });
