@@ -213,6 +213,12 @@
 		if (msg.install) convertAllElems(document.documentElement);
 	});
 
-	document.onreadystatechange = () => { if (document.readyState === "complete") hookOvserver(true); };
+	document.onreadystatechange = () => {
+		// in case some CORS css changed after elements mutation handled before so converAllElems 
+		// do this also on 'interactive' for better response
+		convertAllElems(document.documentElement); 
+
+		if (document.readyState === "complete") hookOvserver(true); // we now want to observe attribute changes as well
+	};
 
 })();
