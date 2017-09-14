@@ -4,11 +4,10 @@
 // lis: [ [li], [li], .., [li, 0, [inp1, inp2, inp3], [li, 1, [inp1, inp2, inp3], [li] ]
 let lis; 
 
-
-function activateLi(theLi) {
+const activateLi = theLi => {
 	function activateOneLi(li, activate) {
 		li.firstChild.disabled=!activate;
-		li.style.opacity=activate ? '' : '0.6';
+		//li.style.opacity=activate ? '' : '0.6';
 		li.style.listStyleType=activate ? 'disc' : 'circle';
 		li.style.fontWeight=activate ? 'bold' : 'normal';
 	}
@@ -28,13 +27,13 @@ function activateLi(theLi) {
 	});
 }
 
-function liClicked(li) {
+const liClicked = li => {
 	if (li.tagName!='LI') li=li.closest('li');
 	activateLi(li); 
 	save();
 }
 
-function hookEvents() {
+const hookEvents = () => {
 	lis.forEach(lia => {
 		lia[0].addEventListener('click', e => liClicked(e.target));
 		lia[0].firstChild.addEventListener('click', e => liClicked(e.target));
@@ -64,15 +63,15 @@ function hookEvents() {
 	});
 }
 
-function parseColor(s) {
-	function validNum(x) { return Number.isInteger(x) && x>=0 && x<=255; }
+const parseColor = s => {
+	const validNum = x => Number.isInteger(x) && x>=0 && x<=255;
 	let color;
 	if (typeof s==='string') try { color=JSON.parse(s); } catch(err) { color=[245, 245, 245]; } else color=s;
 	if (!Array.isArray(color) || color.length!=3 || !validNum(color[0]) || !validNum(color[1]) || !validNum(color[2])) color=[245, 245, 245];
 	return color;
 }
 
-function load() {
+const load = () => {
 	chrome.storage.sync.get(null, storage => {
 		let color=parseColor(storage.color);
 		lis.forEach(lia => {
@@ -101,7 +100,7 @@ function load() {
 	});
 }
 
-function save() {
+const save = () => {
 	let selected;
 	lis.forEach(lia => { if (lia[0].firstChild.disabled===false) selected=lia[0]; });
 	if (!selected) selected=lis[0][0];
@@ -118,6 +117,7 @@ function save() {
 	});
 }
 
+// luminance calculator at https://jsfiddle.net/nzysgutv/
 lis = Array.from(document.getElementById('colorList').getElementsByTagName("LI")).map(curr => [curr]);
 let customIndex=0;
 lis.forEach(lia => {

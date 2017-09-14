@@ -7,13 +7,10 @@ chrome.runtime.onInstalled.addListener(details => {
 			chrome.tabs.query({}, tabs => {
 				const msg = { color: [245,245,245], install: true };
 				tabs.forEach(tab => {
-					chrome.tabs.executeScript(tab.id, { file: 'whitebuster.js', allFrames: true }, result => {
+					chrome.tabs.executeScript(tab.id, { file: 'whitebuster.js', allFrames: true, matchAboutBlank: true, runAt: 'document_start' }, result => {
 						const lastErr = chrome.runtime.lastError;
-						if (lastErr) {
-							console.log('tab: ' + tab.id + ' lastError: ' + JSON.stringify(lastErr));
-						} else {
-							chrome.tabs.sendMessage(tab.id, msg);
-						}
+						if (lastErr) console.log('tab: ' + tab.id + ' lastError: ' + JSON.stringify(lastErr));
+						chrome.tabs.sendMessage(tab.id, msg);
 					});
 				});
 			});
